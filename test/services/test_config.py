@@ -41,6 +41,9 @@ class TestConfigPersistence:
             "pexels",
             "pixabay",
             "coverr",
+            "volcengine_seedance",
+            "ofox",
+            "metaso_minimax",
             "loomloom",
             "local",
         }
@@ -48,9 +51,24 @@ class TestConfigPersistence:
         assert app_config["script_generation_backend"] == "local"
         assert app_config["loomloom_api_token"] == ""
         assert app_config["loomloom_video_run_timeout_seconds"] == 1800
+        assert app_config["volcengine_seedance_api_key"] == ""
+        assert app_config["volcengine_seedance_base_url"].startswith("https://")
+        assert app_config["volcengine_seedance_model"]
+        assert app_config["ofox_api_key"] == ""
+        assert app_config["ofox_base_url"].startswith("https://")
+        assert app_config["ofox_text_to_video_model"]
+        assert app_config["metaso_minimax_api_key"] == ""
+        assert app_config["metaso_minimax_base_url"].startswith("https://")
+        assert app_config["metaso_minimax_resolution"] in {"768P", "2K"}
         assert "loomloom_market_listing_id" not in app_config
         assert "loomloom_video_market_listing_id" not in app_config
         assert app_config["shengsuanyun_api_key"] == ""
+        assert example_config["voxcpm"] == {
+            "base_url": "https://api.modelbest.cn/v1",
+            "api_key": "",
+            "model_id": "",
+            "voice_id": "default",
+        }
         assert example_config["whisper"]["device"] == "cpu"
 
     def test_example_config_covers_llm_provider_registry(self):
