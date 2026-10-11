@@ -8,6 +8,7 @@ rows; it is not a chat-completions provider.
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 from collections.abc import Callable, Mapping
@@ -65,6 +66,25 @@ class LoomLoomRunError(LoomLoomError):
     """Raised when a submitted run fails or exceeds its wait timeout."""
 
 
+def _coerce_seconds_setting(value: Any, name: str) -> float:
+    """
+    把配置里的秒数字段转成浮点数，并保持配置错误的异常类型约定。
+
+    TOML 允许字符串/数组写法，裸 ``float()`` 抛出的 ``ValueError`` /
+    ``TypeError`` 不是 ``LoomLoomError``，会让只捕获 ``LoomLoomError`` 的轮询
+    入口冒泡成 traceback，绕过 ``validate()`` 带配置名的提示；``float(True)``
+    还会静默变成 1.0，把 600 秒等待压成 1 秒。
+    """
+    if isinstance(value, bool):
+        raise LoomLoomConfigurationError(f"{name} must be a number, got {value!r}")
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise LoomLoomConfigurationError(
+            f"{name} must be a number, got {value!r}"
+        ) from None
+
+
 def resolve_api_token(values: Mapping[str, Any]) -> str:
     """
     解析当前功能应使用的胜算云 API Key。
@@ -103,20 +123,23 @@ class LoomLoomSettings:
             market_listing_id=DEFAULT_SCRIPT_MARKET_LISTING_ID,
             listing_version_id="",
             result_port_name=DEFAULT_RESULT_PORT_NAME,
-            request_timeout_seconds=float(
+            request_timeout_seconds=_coerce_seconds_setting(
                 values.get(
                     "loomloom_request_timeout_seconds",
                     DEFAULT_REQUEST_TIMEOUT_SECONDS,
-                )
+                ),
+                "loomloom_request_timeout_seconds",
             ),
-            poll_interval_seconds=float(
+            poll_interval_seconds=_coerce_seconds_setting(
                 values.get(
                     "loomloom_poll_interval_seconds",
                     DEFAULT_POLL_INTERVAL_SECONDS,
-                )
+                ),
+                "loomloom_poll_interval_seconds",
             ),
-            run_timeout_seconds=float(
-                values.get("loomloom_run_timeout_seconds", DEFAULT_RUN_TIMEOUT_SECONDS)
+            run_timeout_seconds=_coerce_seconds_setting(
+                values.get("loomloom_run_timeout_seconds", DEFAULT_RUN_TIMEOUT_SECONDS),
+                "loomloom_run_timeout_seconds",
             ),
         )
         settings.validate(require_api_token=True)
@@ -147,6 +170,10 @@ class LoomLoomSettings:
             ("loomloom_poll_interval_seconds", self.poll_interval_seconds),
             ("loomloom_run_timeout_seconds", self.run_timeout_seconds),
         ):
+            # ``value <= 0`` 拦不住 NaN/Inf：NaN 参与比较恒为 False，Inf 永远
+            # 大于当前时间，两者都会让 ``wait_for_run`` 的截止时间失效。
+            if not math.isfinite(value):
+                raise LoomLoomConfigurationError(f"{name} must be a finite number")
             if value <= 0:
                 raise LoomLoomConfigurationError(f"{name} must be greater than zero")
 
@@ -265,11 +292,12 @@ def video_settings_from_mapping(values: Mapping[str, Any]) -> LoomLoomSettings:
         result_port_name=settings.result_port_name,
         request_timeout_seconds=settings.request_timeout_seconds,
         poll_interval_seconds=settings.poll_interval_seconds,
-        run_timeout_seconds=float(
+        run_timeout_seconds=_coerce_seconds_setting(
             values.get(
                 "loomloom_video_run_timeout_seconds",
                 DEFAULT_VIDEO_RUN_TIMEOUT_SECONDS,
-            )
+            ),
+            "loomloom_video_run_timeout_seconds",
         ),
     )
 
@@ -535,6 +563,7 @@ class LoomLoomScriptBackend:
     def _list_all_result_rows(self, run_id: str) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         page_token = ""
+        seen_tokens: set[str] = set()
         while True:
             params: dict[str, Any] = {"pageSize": 200}
             if page_token:
@@ -550,9 +579,12 @@ class LoomLoomScriptBackend:
             ):
                 raise LoomLoomAPIError("LoomLoom resultRows items must be objects")
             rows.extend(items)
-            page_token = str(response.get("nextPageToken", "")).strip()
+            page_token = str(response.get("nextPageToken") or "").strip()
             if not page_token:
                 return rows
+            if page_token in seen_tokens:
+                raise LoomLoomAPIError("LoomLoom returned a repeated resultRows page token")
+            seen_tokens.add(page_token)
 
     def _parse_candidate(
         self, row_index: int, row: Mapping[str, Any]
@@ -633,6 +665,7 @@ class LoomLoomScriptBackend:
                 },
                 json=dict(json_body) if json_body is not None else None,
                 params=dict(params) if params is not None else None,
+                allow_redirects=False,
                 timeout=(5.0, self.settings.request_timeout_seconds),
             )
         except requests.RequestException as exc:

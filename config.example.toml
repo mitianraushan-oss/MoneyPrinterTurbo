@@ -63,7 +63,7 @@ tls_verify = true
 # -----------------------------------------------------------------------------
 
 # Available values: "pexels", "pixabay", "coverr", "wavespeed",
-# "volcengine_seedance", "ofox", "metaso_minimax", "loomloom",
+# "volcengine_seedance", "ofox", "metaso_minimax", "muapi", "loomloom",
 # "openai_image", "local".
 # "wavespeed" generates brand-new clips with WaveSpeed AI text-to-video models
 # instead of searching stock footage; generation is billed per request.
@@ -157,6 +157,21 @@ ofox_provider = "byteplus"
 ofox_poll_interval = 5
 ofox_run_timeout = 1800
 
+# MuAPI exposes asynchronous text-to-video endpoints under the public API.
+# Create a key at https://muapi.ai and keep the API base URL rooted at
+# https://api.muapi.ai/api/v1 (the endpoint value is a relative path below it).
+# When empty, MUAPI_API_KEY is used. Generation is billed per submitted clip;
+# the WebUI and CLI require explicit charge confirmation before generation.
+muapi_api_key = ""
+muapi_base_url = "https://api.muapi.ai/api/v1"
+# The budget Seedance Lite route accepts 3-12 second clips and 480p/720p/1080p.
+muapi_video_endpoint = "seedance-lite-t2v"
+muapi_resolution = "480p"
+muapi_min_duration = 3
+muapi_max_duration = 12
+muapi_poll_interval = 5
+muapi_run_timeout = 1800
+
 # Metaso proxies the MiniMax H3 V2 asynchronous video API. Register and obtain
 # an independent API key through https://metaso.cn/minimax-h3/?s=MPT. Its mk-*
 # key belongs to a separate credential system and must not reuse the MiniMax LLM key.
@@ -225,7 +240,7 @@ sonilo_timeout = 600
 llm_provider = "moonshot"
 
 # Kimi / Moonshot AI
-# API key: https://platform.kimi.com?track_id=track-2f5441d6ffd84c509dd079d78e9db5dc&aff=moneyprinterturbo
+# API key: https://platform.kimi.com?track_id=track-6eec1e56a4494e52adcaebbcbbefce59&aff=moneyprinterturbo
 moonshot_api_key = ""
 moonshot_base_url = ""
 moonshot_model_name = ""
@@ -242,6 +257,42 @@ shengsuanyun_model_name = ""
 apimart_api_key = ""
 apimart_base_url = ""
 apimart_model_name = ""
+
+# Fluxion AI：使用 OpenAI 接口分组的 API Key，地址和模型可按分组覆盖。
+# 留空时默认使用 https://fluxionai.space/v1 和 gpt-5.5。
+# 模型广场：https://fluxionai.space/model-plaza
+fluxionai_api_key = ""
+fluxionai_base_url = ""
+fluxionai_model_name = ""
+
+# Cheaper Inference, an OpenAI-compatible multi-model gateway.
+# API key: https://cheaperinference.com/signup
+# Model list: https://cheaperinference.com/#models
+cheaperinference_api_key = ""
+cheaperinference_base_url = ""
+cheaperinference_model_name = ""
+
+# Requesty, an OpenAI-compatible multi-model gateway.
+# API key: https://app.requesty.ai/api-keys
+# Model list: https://www.requesty.ai/models
+# EU endpoint: https://router.eu.requesty.ai/v1
+requesty_api_key = ""
+requesty_base_url = ""
+requesty_model_name = ""
+
+# FutureInfra, an OpenAI-compatible multi-model gateway.
+# API key: https://futureinfra.ai/console/?screen=ai-router
+# Model list: https://futureinfra.ai/ai/
+futureinfra_api_key = ""
+futureinfra_base_url = ""
+futureinfra_model_name = ""
+
+# Y-API, an OpenAI-compatible multi-model gateway (also serves /v1/messages).
+# API key: https://y-api.bestvirtualgoods.com/app/keys
+# Model list: https://y-api.bestvirtualgoods.com/models
+yapi_api_key = ""
+yapi_base_url = ""
+yapi_model_name = ""
 
 # OpenAI or another OpenAI Chat Completions-compatible provider.
 # API key: https://platform.openai.com/api-keys
@@ -302,6 +353,14 @@ minimax_model_name = ""
 mimo_api_key = ""
 mimo_base_url = ""
 mimo_model_name = ""
+
+# iFlytek Spark on Astron MaaS (OpenAI-compatible). Pay-as-you-go keys use the
+# default base URL; Token Plan keys need
+# https://maas-token-api.cn-huabei-1.xf-yun.com/v2 instead.
+# API key: https://maas.xfyun.cn/
+iflytek_api_key = ""
+iflytek_base_url = ""
+iflytek_model_name = ""
 
 # Cloudflare AI Gateway. The token requires AI Gateway Read/Edit and Workers AI
 # Read permissions. Leave gateway_id empty to use the Registry default.
@@ -410,6 +469,17 @@ subtitle_provider = "edge"
 # download it from https://www.gyan.dev/ffmpeg/builds/ and set the executable.
 # Windows example: ffmpeg_path = "C:\\path\\to\\ffmpeg.exe"
 # ffmpeg_path = ""
+
+# Fail a stalled FFmpeg concatenation after this many seconds (default: 3600).
+# Increase this for unusually long videos or slow machines. On timeout, FFmpeg
+# is stopped and the task reports a failure instead of staying at 50% forever.
+# ffmpeg_concat_timeout_seconds = 3600
+
+# No-voice MP3 and pause-tag narration use FFmpeg. Bound each invocation so a
+# stuck conversion fails the task rather than waiting indefinitely (default:
+# 600 seconds per invocation). Increase this on unusually slow machines or for
+# very long narration chunks.
+# ffmpeg_tts_timeout_seconds = 600
 
 # Leave unset to follow the app default (libx264). Hardware encoders are optional;
 # unsupported encoders automatically fall back to libx264.
@@ -536,6 +606,9 @@ api_key = ""
 # Available models include eleven_multilingual_v2, eleven_flash_v2_5, and eleven_v3.
 model_id = "eleven_multilingual_v2"
 # Video-to-Music uses a separate model family while sharing the same API key.
+# music_base_url only configures the Video-to-Music endpoint, so it can point at
+# a proxy or a self-hosted gateway while the voice API keeps the default host.
+music_base_url = "https://api.elevenlabs.io"
 music_model_id = "music_v2"
 music_timeout = 600
 
@@ -624,6 +697,7 @@ open_task_folder_on_completion = true
 # video_count = 1
 # tts_server = "azure-tts-v1"
 # voice_name = ""
+# voice_mode = "tts"                 # "tts", "upload", or "none"
 # voice_volume = 1.0
 # voice_rate = 1.0
 # bgm_type = "random"
@@ -632,12 +706,14 @@ open_task_folder_on_completion = true
 # sonilo_bgm_prompt = ""
 # elevenlabs_music_prompt = ""
 # subtitle_enabled = true
+# subtitle_display_mode = "sentence" # "sentence" or "word_by_word"
+# subtitle_animation = "none"        # "none" or "pop_spring"
 # font_name = "MicrosoftYaHeiBold.ttc"
 # font_size = 60
 # text_fore_color = "#FFFFFF"
 # stroke_color = "#000000"
 # stroke_width = 1.5
-# subtitle_position = "bottom" # "top", "center", "bottom", or "custom"
+# subtitle_position = "bottom" # "top", "center", "bottom", "two_thirds_bottom", or "custom"
 # custom_position = 70.0       # Percentage from the top when using "custom"
 # subtitle_background_enabled = false
 # subtitle_background_color = "#000000"
